@@ -1,0 +1,160 @@
+
+                               .______.
+                              (        )
+                         ( Cloud Replicators ) ===>=====>(Edge box)
+                          .                 .            @Receiver site A
+                           . Load balancer .
+           ++=============>(______________) ===>==++
+           ||                                     ||
+           ||                                     VV
+       ( Edge box )                           (Edge box)
+       @source site                           @Receiver site B
+           |                                       |
+       (Router/Switch)                        (Router/Switch)
+       With PIM state                         with PIM/IGMP state
+           |                                       | \
+           |                                       |  \
+        Source S1                                 R1  R2
+ 
+
+
+     === GRE Tunnels with GRE key context
+    
+     Figure 1.0 Overall Architecture
+
+
+==============================================================================
+
+
+   Control Plane Exchange
+
+   (Source S1)     (Router/Switch  (Edge Box)   (CR+LB @cloud)  (Edge Box)         (Router/Switch)    (Receiver Rx)
+                    @Source Site)  @Source Site                 @Receiver Site     @Receiver Site
+        |               |              |              |              |                   |                  |
+        | WO Link creates state in the Cloud          |              |                   |                  |
+        |-------------------------------------------->|              |                   |                  |
+        |               |              |Splices state in Edgebox     |                   |                  |
+        |               |              |<------------ |              |                   |                  |
+        |               |              |Mcast+GRE key |              |                   |                  |
+        |               | PIM Join     |              |              |                   |                  |
+        |               | Mcast state  |              |              |                   |                  |
+        |               |<-------------|              |              |                   |                  |
+        |               |              |              |              |                   |                  |
+        |               |              |              |              |                   |                  |
+        |               |              |              |              |                   |                  |
+        |               |              |              | WO link creates state in the Cloud                  |
+        |               |              |              | Replication state (S1 -> R1,R2,Rn                   |
+        |               |              |              |              |                   |                  |
+        |               |              |              |<----------------------------------------------------|
+        |               |              |              | Splices state in Edgebox         |                  |
+        |               |              |              |------------->|                   |                  |
+        |               |              |              | Mcast+GRE key|                   |IGMP Join (Mcast) |
+        |               |              |              |              |                   |<-----------------|
+        |               |              |              |              | PIM Join (Mcast)  |                  |
+        |               |              |              |              |<------------------|                  |
+        |               |              |              |              |                   |                  |
+
+   Figure 2.0 Control Plane Exchange
+
+   Data Plane Flow
+
+   (Source S1)     (Router/Switch  (Edge Box)   (CR+LB @cloud)  (Edge Box)         (Router/Switch)    (Receiver Rx)
+                    @Source Site)  @Source Site                 @Receiver Site     @Receiver Site
+        |               |              |              |              |                   |                  |
+        |               |              |              |              |                   |                  |
+        | Source S1 streams data       |              |              |                   |                  |
+        | Compression at Source S1     |              |              |                   |                  |
+        |-------------->|------------->|              |              |                   |                  |
+        |               |              | Tunneled traffic flows after|                   |                  |
+        |               |              |=============>|Replication   |                   |                  |
+        |               |              |              |              |                   |                  |
+        |               |              |              |=============>|                   |                  |
+        |               |              |              |              | Stream is de-tunneled to receivers   |
+        |               |              |              |              |------------------>|----------------->|
+        |               |              |              |              |        De-compression at Rx          |
+        |               |              |              |              |                   |                  |
+
+   Figure 3.0 Control Plane Exchange
+
+	=== Tunnelled traffic
+	--- Plain mcast encapsulation
+
+===============================================================================
+
+
+   Data plane Packet Format...
+
+
+   (Source S1)     (Router/Switch  (Edge Box)   (CR+LB @cloud)  (Edge Box)         (Router/Switch)    (Receiver Rx)
+                    @Source Site)  @Source Site                 @Receiver Site     @Receiver Site
+        |               |              |              |              |                   |                  |
+        |-(Mcast S,G in data packet)-->|              |              |                   |                  |
+        |               |              |              |              |                   |                  |
+        |               |       Encapsulation in GRE  |              |                   |                  |
+        |               |              |(CloudCR-IP, GRE key, Mcast (S,G)                |                  |
+        |               |              |=============>|              |                   |                  |
+        |               |              |              |              |                   |                  |
+        |               |              |(EdgeBox-IP, GRE key, Mcast (S,G)                |                  |
+        |               |              |Uses Replication state S1 -> R1,R2,Rn            |                  |
+        |               |              |              |=============>|                   |                  |
+        |               |              |              |      Decapsulation from GRE      |                  |
+        |               |              |              |              |-(Mcast S,G in data packet)---------->|
+        |               |              |              |              |                   |                  |
+        |               |              |              |              |                   |                  |
+
+
+   Figure 4.0 Detailed Data Plane flow (encap/decap).
+
+	=== Tunnelled traffic
+	--- Plain mcast encapsulation
+
+================================================================================
+
+
+   State information in the Cloud Replicators and Load balancers+Replicators.
+
+   GRE Key <Stream instance 1>
+   Customer A
+
+	- Lookup the below two entities
+
+	Source Edge box IP5
+	Cloud Replicator IP(n)
+
+		- Change Destination IP in outer header to each of the replicated streams
+
+		Destination Edge Box IP1
+		Destination Edge Box IP2
+		Destination Edge Box IP3
+		Destination Edge Box IP4
+      
+  GRE Key <Stream instance 2>
+  Customer B
+
+	Source Edge box 1P6
+	Cloud Replicator IP(m)
+
+		Destination Edge Box IP7
+		Destination Edge Box IP8
+		Destination Edge Box IP9
+		Destination Edge Box IP10
+
+	....
+	....
+
+	Figure 5.0 Cloud replicator state pivoting on GRE Key value.
+
+==================================================================================
+
+TODO : References and prior art.
+	Comparison with 
+        - Viptela (Cisco)
+        - Aryaka
+        - Velocloud
+        - Versa
+        - Netscaler SD-WAN
+        - 128 Technologies
+        - Nuage Networks
+        - Juniper
+	- and a few others.
+        
